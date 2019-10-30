@@ -10,8 +10,8 @@ import (
 const (
 	red   = "\033[1;31m"
 	yellow= "\033[1;33m"
-	white = "[\033[1;37m"
-	cyan  = "[\033[1;36m"
+	white = "\033[1;37m"
+	cyan  = "\033[1;36m"
 )
 
 /*
