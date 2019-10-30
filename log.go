@@ -19,7 +19,7 @@ const (
 // all levels from /usr/include/sys/syslog.h are included here.
 type Level int
 const (
-	LEVEL_EMERG Level = iota
+	LEVEL_EMERG Level = 32 - 1 - iota
 	LEVEL_ALERT
 	LEVEL_CRIT
 	LEVEL_ERR
@@ -33,6 +33,11 @@ func (Level s) ToString() string {
 	// TODO
 }
 
+var LevelMask Level = 0xffffffff
+
+func IsEnabled(Level) {
+	return LevelMask & Level != 0
+}
 
 */
 
