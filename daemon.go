@@ -17,7 +17,7 @@ func handleSignals(daemon Daemon, pidFilePath string) {
 			if err != nil {
 				Emerg("Failed to reload: " + err.Error())
 			}
-			return;
+			break
 		case syscall.SIGTERM, syscall.SIGINT:
 			err := daemon.Stop()
 			if err != nil {
