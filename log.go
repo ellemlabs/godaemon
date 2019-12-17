@@ -6,18 +6,17 @@ import (
 	"os"
 )
 
-
 const (
-	red   = "\033[1;31m"
-	yellow= "\033[1;33m"
-	white = "\033[1;37m"
-	cyan  = "\033[1;36m"
+	red    = "\033[1;31m"
+	yellow = "\033[1;33m"
+	white  = "\033[1;37m"
+	cyan   = "\033[1;36m"
 )
-
 
 // TODO:  implement the below
 // all levels from /usr/include/sys/syslog.h are included here.
 type Level uint
+
 const (
 	LEVEL_EMERG Level = 1 << (32 - 1 - iota)
 	LEVEL_ALERT
@@ -39,18 +38,12 @@ var LevelMask Level = LEVEL_EMERG |
 	LEVEL_DEBUG
 
 func IsEnabled(l Level) bool {
-	return LevelMask & l != 0
+	return LevelMask&l != 0
 }
 
 func Disable(l Level) {
-	//LevelMask = (LevelMask & ^(1 << (l - 1)))
 	LevelMask = LevelMask &^ l
-	fmt.Fprintf(os.Stdout, "%x\n", LevelMask)
 }
-
-
-
-
 
 // Feel free to set this to whatever you'd like. All output of a daemon should be going to the same place.
 // Thus we don't need to use os.Stderr for example (we should only use that if there was a
@@ -58,7 +51,7 @@ func Disable(l Level) {
 var Output io.Writer = os.Stdout
 
 func logColor(prefix string, color string, message string) {
-	_,_ = fmt.Fprintf(Output, "[ %s%.6s \033[0m] %s\n", color,prefix,message)
+	_, _ = fmt.Fprintf(Output, "[ %s%.6s \033[0m] %s\n", color, prefix, message)
 }
 
 func Emerg(message string) {
@@ -108,7 +101,3 @@ func Debug(message string) {
 		logColor("Debug", cyan, message)
 	}
 }
-
-
-
-
