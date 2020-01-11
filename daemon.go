@@ -75,9 +75,9 @@ func Daemonize(daemon Daemon, pidFilePath string) {
 	fd, err := syscall.Open(pidFilePath, syscall.O_WRONLY | syscall.O_CREAT | syscall.O_EXCL, 0666)
 	if err != nil {
 		if os.IsExist(err) {
-			Crit("Failed to open pid file: " + err.Error() + "(" + fallBackOnPIDExists(pidFilePath) + ")")
+			Crit("Failed to open pid file '"+pidFilePath+"': " + err.Error() + "(" + fallBackOnPIDExists(pidFilePath) + ")")
 		} else {
-			Crit("Failed to start daemon: " + err.Error())
+			Crit("Failed to open pid file '"+pidFilePath+"': " + err.Error())
 		}
 		os.Exit(1)
 		return
@@ -92,12 +92,15 @@ func Daemonize(daemon Daemon, pidFilePath string) {
 	_ = syscall.Close(fd)
 
 	// actually run the daemon
+	Debug("Loading daemon...")
 	err  = daemon.Load()
 	if err != nil {
 		Crit("Failed to load: "+ err.Error())
 		_ = syscall.Unlink(pidFilePath)
 		os.Exit(1)
 	}
+
+	Debug("Starting daemon...")
 	if err := daemon.Start(); err != nil {
 		Error("Daemon returned error: "+ err.Error())
 		_ = syscall.Unlink(pidFilePath)
@@ -109,17 +112,30 @@ func Daemonize(daemon Daemon, pidFilePath string) {
 }
 
 
+type Status int
+const (
+	StatNew    Status = iota
+	StatLoading
+	StatLoaded
+	StatStarting
+	StatStarted
+	StatStopping
+	StatStopped
+)
+
 
 type Daemon interface {
 
 	/*
-	 * DESCRIPTION: Load() will load the configuration of the daemon (ie, /etc/ files). It is called before
-	 * initial Start() as well as when a SIGHUP is recieved.
+	 * DESCRIPTION: Load() will load the configuration of the daemon (ie,
+	 * /etc/ files). It is called before initial Start()
+	 * as well as when a SIGHUP is recieved.
 	 *
 	 * THREAD SAFETY: Load MUST be thread-safe. It MAY be called multiple times,
 	 * it will be called both before and after Start().
 	 *
-	 * RETURN: returning an error is critical on initial start up, all subsequent Load() calls that return errors
+	 * RETURN: returning an error is critical on initial start up, all
+	 * subsequent Load() calls that return errors
 	 * WILL NOT be critical to the proccess of the daemon.
 	 */
 	Load()  error
@@ -146,4 +162,12 @@ type Daemon interface {
 	 * is being called even after the daemon has already been stopped, no error should be returned.
 	 */
 	Stop()  error
+
+	/*
+	 * THREAD SAFETY: MUST be thread-safe as it will likely be called on a seperate
+	 * thread that listens for arbitrary signals.
+	 *
+	 * RETURN: Returns the status of the daemon
+	 */
+	//GetStatus() Status
 }
