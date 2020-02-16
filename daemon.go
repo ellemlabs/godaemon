@@ -5,6 +5,7 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"errors"
 )
 
 var signalChannel chan os.Signal
@@ -35,33 +36,45 @@ func handleSignals(daemon Daemon, pidFilePath string) {
 	}
 }
 
-func fallBackOnPIDExists(pidFilePath string ) string {
+func fallBackOnPIDExists(pidFilePath string) error {
 	var fd int
 	var err error
 	if fd,err = syscall.Open(pidFilePath, syscall.O_RDONLY, 0666); err != nil {
-		return "cannot open pid file to discover if daemon is already running" + err.Error()
+		return errors.New("cannot open pid file to discover if daemon is" +
+			" already running" + err.Error())
 	}
 
 	buffer := make([]byte,255)
 	n,err  := syscall.Read(fd,buffer)
 	_ = syscall.Close(fd)
 	if err != nil {
-		return "cannot read pid file to discover if daemon is already running: " + err.Error()
+		return errors.New("cannot read pid file to discover if daemon is" +
+			" already running: " + err.Error())
 	}
 
 	pid,err := strconv.Atoi(string(buffer[:n]))
 	if err != nil {
-		return "cannot interpret pid file to discover if daemon is already running: " + err.Error()
+		return errors.New("cannot interpret pid file to discover if daemon is" +
+			" already running: " + err.Error())
 	}
 	err  = syscall.Kill(pid, 0)
 	if err != nil {
 		if err == syscall.ESRCH {
-			return "no proccess detected, try deleting pid file?"
+			Notice("old pid file found, " +
+				"but no running process attached to it, attempting to delete")
+			err2 := os.Remove(pidFilePath)
+			if err2 != nil {
+				return errors.New("failed to delete old (" +
+					"unused) pid file: " + err2.Error())
+			} else {
+				return nil
+			}
 		} else {
-			return "cannot detect proccess status: " + err.Error()
+			return errors.New("cannot detect proccess status from old pid file: " + err.
+				Error())
 		}
 	}
-	return "a daemon is already running with this PID"
+	return errors.New("a daemon is already running with this PID")
 }
 
 func Daemonize(daemon Daemon, pidFilePath string) {
@@ -70,12 +83,21 @@ func Daemonize(daemon Daemon, pidFilePath string) {
 	signalChannel = make(chan os.Signal, 1)
 	signal.Notify(signalChannel)
 	go handleSignals(daemon, pidFilePath)
+	tryopened := false
 
 	// create pid file
+	tryopen:
 	fd, err := syscall.Open(pidFilePath, syscall.O_WRONLY | syscall.O_CREAT | syscall.O_EXCL, 0666)
 	if err != nil {
 		if os.IsExist(err) {
-			Crit("Failed to open pid file '"+pidFilePath+"': " + err.Error() + "(" + fallBackOnPIDExists(pidFilePath) + ")")
+			err2 := fallBackOnPIDExists(pidFilePath)
+			if err2 != nil {
+				Crit("Failed to create pid file '" + pidFilePath + "': " + err.
+					Error() + "(" + err2.Error() + ")")
+			} else if !tryopened {
+				tryopened = true
+				goto tryopen
+			}
 		} else {
 			Crit("Failed to open pid file '"+pidFilePath+"': " + err.Error())
 		}
